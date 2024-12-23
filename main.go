@@ -132,10 +132,9 @@ func main() {
 			}
 
 			privateComputeSubnet, err := ec2.NewSubnet(ctx, fmt.Sprintf("private-compute-%s", az), &ec2.SubnetArgs{
-				VpcId:               vpc.ID(),
-				CidrBlock:           pulumi.String(fmt.Sprintf("%s.%d.0/24", firstTwoOctets, thirdOctet)),
-				AvailabilityZone:    pulumi.String(fmt.Sprintf("%s%s", region, az)),
-				MapPublicIpOnLaunch: pulumi.Bool(true),
+				VpcId:            vpc.ID(),
+				CidrBlock:        pulumi.String(fmt.Sprintf("%s.%d.0/24", firstTwoOctets, thirdOctet)),
+				AvailabilityZone: pulumi.String(fmt.Sprintf("%s%s", region, az)),
 				Tags: pulumi.StringMap{
 					"Name": pulumi.String(fmt.Sprintf("%s-priv-subnet-compute-%s", resourceNamePrefix, az)),
 				},
@@ -154,10 +153,9 @@ func main() {
 			}
 
 			privateDbSubnet, err := ec2.NewSubnet(ctx, fmt.Sprintf("private-db-%s", az), &ec2.SubnetArgs{
-				VpcId:               vpc.ID(),
-				CidrBlock:           pulumi.String(fmt.Sprintf("%s.%d.0/24", firstTwoOctets, thirdOctet)),
-				AvailabilityZone:    pulumi.String(fmt.Sprintf("%s%s", region, az)),
-				MapPublicIpOnLaunch: pulumi.Bool(true),
+				VpcId:            vpc.ID(),
+				CidrBlock:        pulumi.String(fmt.Sprintf("%s.%d.0/24", firstTwoOctets, thirdOctet)),
+				AvailabilityZone: pulumi.String(fmt.Sprintf("%s%s", region, az)),
 				Tags: pulumi.StringMap{
 					"Name": pulumi.String(fmt.Sprintf("%s-priv-subnet-db-%s", resourceNamePrefix, az)),
 				},
