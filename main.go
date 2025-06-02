@@ -1,7 +1,7 @@
 package main
 
 import (
-	"clientvpn/networking"
+	"clientvpn/utils"
 
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -40,7 +40,7 @@ func main() {
 		}
 
 		// Create VPC 1 and VPC 2
-		vpc1, err := networking.CreateCustomVPC(ctx, networking.VPCArgs{
+		vpc1, err := utils.CreateCustomVPC(ctx, utils.VPCArgs{
 			NamePrefix: "vpc1",
 			CIDRBlock:  vpc1Cidr,
 			AZs:        azs,
@@ -50,7 +50,7 @@ func main() {
 			return err
 		}
 
-		vpc2, err := networking.CreateCustomVPC(ctx, networking.VPCArgs{
+		vpc2, err := utils.CreateCustomVPC(ctx, utils.VPCArgs{
 			NamePrefix: "vpc2",
 			CIDRBlock:  vpc2Cidr,
 			AZs:        azs,
@@ -61,12 +61,12 @@ func main() {
 		}
 
 		// Transit Gateway
-		tgw, err := networking.CreateTransitGateway(ctx, "tgw")
+		tgw, err := utils.CreateTransitGateway(ctx, "tgw")
 		if err != nil {
 			return err
 		}
 
-		_, err = networking.AttachVPCsToTGW(ctx, tgw, vpc1, vpc2)
+		_, err = utils.AttachVPCsToTGW(ctx, tgw, vpc1, vpc2)
 		if err != nil {
 			return err
 		}
@@ -82,7 +82,7 @@ func main() {
 		}
 
 		// VPN in VPC1
-		_, err = networking.CreateClientVPN(ctx, networking.VPNArgs{
+		_, err = utils.CreateClientVPN(ctx, utils.VPNArgs{
 			VpcId:                vpc1.Vpc.ID(),
 			PrivateComputeSubnet: vpc1.PrivateComputeSubnets["a"].ID(),
 			DNS:                  vpc1.DNS,
@@ -95,72 +95,27 @@ func main() {
 			return err
 		}
 
-		// EC2 in VPC1 with ICMP from VPN CIDR
-		vpc1InstanceSG, err := ec2.NewSecurityGroup(ctx, "vpc1-instance-sg", &ec2.SecurityGroupArgs{
-			VpcId: vpc1.Vpc.ID(),
-			Ingress: ec2.SecurityGroupIngressArray{
-				&ec2.SecurityGroupIngressArgs{
-					Protocol:   pulumi.String("icmp"),
-					FromPort:   pulumi.Int(-1),
-					ToPort:     pulumi.Int(-1),
-					CidrBlocks: pulumi.StringArray{pulumi.String(clientCidrBlock)},
-				},
-			},
-			Egress: ec2.SecurityGroupEgressArray{
-				&ec2.SecurityGroupEgressArgs{
-					Protocol:   pulumi.String("-1"),
-					FromPort:   pulumi.Int(0),
-					ToPort:     pulumi.Int(0),
-					CidrBlocks: pulumi.StringArray{pulumi.String("0.0.0.0/0")},
-				},
-			},
+		// EC2 in VPC1 with ICMP from VPN CIDR and VPC2 CIDR
+		err = utils.CreateEC2WithICMPAccess(ctx, utils.InstanceArgs{
+			Name:           "vpc1-instance",
+			VpcId:          vpc1.Vpc.ID(),
+			SubnetId:       vpc1.PrivateComputeSubnets["a"].ID(),
+			CidrForIngress: clientCidrBlock,
+			AmiId:          ami.Id,
 		})
+
 		if err != nil {
 			return err
 		}
-
-		_, err = ec2.NewInstance(ctx, "vpc1-instance", &ec2.InstanceArgs{
-			Ami:                 pulumi.String(ami.Id),
-			InstanceType:        pulumi.String("t4g.micro"),
-			SubnetId:            vpc1.PrivateComputeSubnets["a"].ID(),
-			VpcSecurityGroupIds: pulumi.StringArray{vpc1InstanceSG.ID()},
-			Tags:                pulumi.StringMap{"Name": pulumi.String("vpc1-ec2")},
+		// EC2 in VPC2 with ICMP from VPC1 CIDR
+		err = utils.CreateEC2WithICMPAccess(ctx, utils.InstanceArgs{
+			Name:           "vpc2-instance",
+			VpcId:          vpc2.Vpc.ID(),
+			SubnetId:       vpc2.PrivateComputeSubnets["a"].ID(),
+			CidrForIngress: vpc1Cidr,
+			AmiId:          ami.Id,
 		})
-		if err != nil {
-			return err
-		}
 
-		// EC2 in VPC2 with ICMP from VPC1
-		vpc2InstanceSG, err := ec2.NewSecurityGroup(ctx, "vpc2-instance-sg", &ec2.SecurityGroupArgs{
-			VpcId: vpc2.Vpc.ID(),
-			Ingress: ec2.SecurityGroupIngressArray{
-				&ec2.SecurityGroupIngressArgs{
-					Protocol:   pulumi.String("icmp"),
-					FromPort:   pulumi.Int(-1),
-					ToPort:     pulumi.Int(-1),
-					CidrBlocks: pulumi.StringArray{pulumi.String(vpc1Cidr)},
-				},
-			},
-			Egress: ec2.SecurityGroupEgressArray{
-				&ec2.SecurityGroupEgressArgs{
-					Protocol:   pulumi.String("-1"),
-					FromPort:   pulumi.Int(0),
-					ToPort:     pulumi.Int(0),
-					CidrBlocks: pulumi.StringArray{pulumi.String("0.0.0.0/0")},
-				},
-			},
-		})
-		if err != nil {
-			return err
-		}
-
-		_, err = ec2.NewInstance(ctx, "vpc2-instance", &ec2.InstanceArgs{
-			Ami:                 pulumi.String(ami.Id),
-			InstanceType:        pulumi.String("t4g.micro"),
-			SubnetId:            vpc2.PrivateComputeSubnets["a"].ID(),
-			VpcSecurityGroupIds: pulumi.StringArray{vpc2InstanceSG.ID()},
-			Tags:                pulumi.StringMap{"Name": pulumi.String("vpc2-ec2")},
-		})
 		if err != nil {
 			return err
 		}

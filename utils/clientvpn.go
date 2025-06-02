@@ -1,4 +1,4 @@
-package networking
+package utils
 
 import (
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/cloudwatch"
