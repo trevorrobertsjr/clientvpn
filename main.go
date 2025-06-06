@@ -82,7 +82,7 @@ func main() {
 		}
 
 		// VPN in VPC1
-		_, err = utils.CreateClientVPN(ctx, utils.VPNArgs{
+		cVpnResult, err := utils.CreateClientVPN(ctx, utils.VPNArgs{
 			VpcId:                vpc1.Vpc.ID(),
 			PrivateComputeSubnet: vpc1.PrivateComputeSubnets["a"].ID(),
 			DNS:                  vpc1.DNS,
@@ -96,11 +96,11 @@ func main() {
 		}
 
 		// EC2 in VPC1 with ICMP from VPN CIDR and VPC2 CIDR
-		err = utils.CreateEC2WithICMPAccess(ctx, utils.InstanceArgs{
+		instance_vpc1, err := utils.CreateEC2WithICMPAccess(ctx, utils.InstanceArgs{
 			Name:           "vpc1-instance",
 			VpcId:          vpc1.Vpc.ID(),
 			SubnetId:       vpc1.PrivateComputeSubnets["a"].ID(),
-			CidrForIngress: clientCidrBlock,
+			CidrForIngress: vpc1Cidr,
 			AmiId:          ami.Id,
 		})
 
@@ -108,7 +108,7 @@ func main() {
 			return err
 		}
 		// EC2 in VPC2 with ICMP from VPC1 CIDR
-		err = utils.CreateEC2WithICMPAccess(ctx, utils.InstanceArgs{
+		instance_vpc2, err := utils.CreateEC2WithICMPAccess(ctx, utils.InstanceArgs{
 			Name:           "vpc2-instance",
 			VpcId:          vpc2.Vpc.ID(),
 			SubnetId:       vpc2.PrivateComputeSubnets["a"].ID(),
@@ -119,6 +119,23 @@ func main() {
 		if err != nil {
 			return err
 		}
+
+		// Add route to the other VPC's subnet through TGW
+		// You'll need a subnet in the target VPC as the route target
+		_, err = utils.AddClientVPNRoute(ctx, "vpnRouteToOtherVPC",
+			cVpnResult.Endpoint.ID(),
+			vpc2Cidr,                             // CIDR of your other VPC or specific subnet
+			vpc1.PrivateComputeSubnets["a"].ID(), // A subnet ID in your target VPC
+		)
+		if err != nil {
+			return err
+		}
+
+		// Export the private IPs
+		ctx.Export("vpc1InstanceId", instance_vpc1.ID())
+		ctx.Export("vpc2InstanceId", instance_vpc2.ID())
+		ctx.Export("vpc1InstancePrivateIP", instance_vpc1.PrivateIp)
+		ctx.Export("vpc2InstancePrivateIP", instance_vpc2.PrivateIp)
 
 		return nil
 	})
