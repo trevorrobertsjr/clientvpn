@@ -16,7 +16,7 @@ type InstanceArgs struct {
 	AmiId          string
 }
 
-func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs) (*ec2.Instance, error) {
+func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs, opts ...pulumi.ResourceOption) (*ec2.Instance, error) {
 	// Security Group allowing ICMP
 	sg, err := ec2.NewSecurityGroup(ctx, fmt.Sprintf("%s-sg", args.Name), &ec2.SecurityGroupArgs{
 		VpcId: args.VpcId,
@@ -36,7 +36,7 @@ func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs) (*ec2.Insta
 				CidrBlocks: pulumi.StringArray{pulumi.String("0.0.0.0/0")},
 			},
 		},
-	})
+	}, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +91,6 @@ func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs) (*ec2.Insta
 		Tags: pulumi.StringMap{
 			"Name": pulumi.String(args.Name),
 		},
-	})
+	}, opts...)
 	return instance, err
 }

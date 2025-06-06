@@ -16,7 +16,7 @@ type TGWAttachmentArgs struct {
 	Subnets []pulumi.StringInput
 }
 
-func CreateTransitGateway(ctx *pulumi.Context, name string) (*ec2transitgateway.TransitGateway, error) {
+func CreateTransitGateway(ctx *pulumi.Context, name string, opts ...pulumi.ResourceOption) (*ec2transitgateway.TransitGateway, error) {
 	return ec2transitgateway.NewTransitGateway(ctx, name, &ec2transitgateway.TransitGatewayArgs{
 		AmazonSideAsn:                pulumi.Int(64512),
 		AutoAcceptSharedAttachments:  pulumi.String("enable"),

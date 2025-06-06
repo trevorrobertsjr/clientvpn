@@ -37,7 +37,7 @@ func getFirstTwoOctets(cidr string) (string, error) {
 	return fmt.Sprintf("%s.%s", octets[0], octets[1]), nil
 }
 
-func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
+func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs, opts ...pulumi.ResourceOption) (*VPCResult, error) {
 	firstTwoOctets, err := getFirstTwoOctets(args.CIDRBlock)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
 		Tags: pulumi.StringMap{
 			"Name": pulumi.String(args.NamePrefix + "-vpc"),
 		},
-	})
+	}, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
 		Tags: pulumi.StringMap{
 			"Name": pulumi.String(args.NamePrefix + "-igw"),
 		},
-	})
+	}, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
 		Tags: pulumi.StringMap{
 			"Name": pulumi.String(args.NamePrefix + "-public-rt"),
 		},
-	})
+	}, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -98,14 +98,14 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
 			Tags: pulumi.StringMap{
 				"Name": pulumi.String(fmt.Sprintf("%s-pub-subnet-compute-%s", args.NamePrefix, az)),
 			},
-		})
+		}, opts...)
 		if err != nil {
 			return nil, err
 		}
 		_, err = ec2.NewRouteTableAssociation(ctx, fmt.Sprintf("%s-public-rt-assoc-%s", args.NamePrefix, az), &ec2.RouteTableAssociationArgs{
 			SubnetId:     pubSubnet.ID(),
 			RouteTableId: publicRT.ID(),
-		})
+		}, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +120,7 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
 			Tags: pulumi.StringMap{
 				"Name": pulumi.String(fmt.Sprintf("%s-priv-subnet-compute-%s", args.NamePrefix, az)),
 			},
-		})
+		}, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +136,7 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
 			Tags: pulumi.StringMap{
 				"Name": pulumi.String(fmt.Sprintf("%s-priv-subnet-db-%s", args.NamePrefix, az)),
 			},
-		})
+		}, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -151,7 +151,7 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
 			Tags: pulumi.StringMap{
 				"Name": pulumi.String(fmt.Sprintf("%s-priv-subnet-tgw-%s", args.NamePrefix, az)),
 			},
-		})
+		}, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -189,7 +189,7 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
 		Tags: pulumi.StringMap{
 			"Name": pulumi.Sprintf("%s-ssm-endpoint-sg", args.NamePrefix),
 		},
-	})
+	}, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
 				vpcEndpointSG.ID(),
 			},
 			PrivateDnsEnabled: pulumi.Bool(true),
-		})
+		}, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -227,14 +227,14 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs) (*VPCResult, error) {
 	}, nil
 }
 
-func (v *VPCResult) AddTGWRoute(ctx *pulumi.Context, name string, destinationCidr string, tgwId pulumi.IDOutput) error {
+func (v *VPCResult) AddTGWRoute(ctx *pulumi.Context, name string, destinationCidr string, tgwId pulumi.IDOutput, opts ...pulumi.ResourceOption) error {
 	for az, subnet := range v.PrivateComputeSubnets {
 		rt, err := ec2.NewRouteTable(ctx, fmt.Sprintf("%s-tgw-rt-%s", name, az), &ec2.RouteTableArgs{
 			VpcId: v.Vpc.ID(),
 			Tags: pulumi.StringMap{
 				"Name": pulumi.String(fmt.Sprintf("%s-tgw-rt-%s", name, az)),
 			},
-		})
+		}, opts...)
 		if err != nil {
 			return err
 		}
@@ -243,7 +243,7 @@ func (v *VPCResult) AddTGWRoute(ctx *pulumi.Context, name string, destinationCid
 			RouteTableId:         rt.ID(),
 			DestinationCidrBlock: pulumi.String(destinationCidr),
 			TransitGatewayId:     tgwId,
-		})
+		}, opts...)
 		if err != nil {
 			return err
 		}
@@ -251,7 +251,7 @@ func (v *VPCResult) AddTGWRoute(ctx *pulumi.Context, name string, destinationCid
 		_, err = ec2.NewRouteTableAssociation(ctx, fmt.Sprintf("%s-tgw-rt-assoc-%s", name, az), &ec2.RouteTableAssociationArgs{
 			SubnetId:     subnet.ID(),
 			RouteTableId: rt.ID(),
-		})
+		}, opts...)
 		if err != nil {
 			return err
 		}
