@@ -190,7 +190,6 @@ func main() {
 		}
 
 		// Add route to the other VPC's subnet through TGW
-		// You'll need a subnet in the associated VPC as the route target
 		_, err = utils.AddClientVPNRoute(ctx, "vpnRouteToOtherVPC",
 			cVpnResult,
 			westVpcCidr,                             // CIDR of your other VPC or specific subnet
@@ -206,8 +205,6 @@ func main() {
 		ctx.Export("westInstanceId", westInstance.ID())
 		ctx.Export("eastInstancePrivateIP", eastInstance.PrivateIp)
 		ctx.Export("westInstancePrivateIP", westInstance.PrivateIp)
-		ctx.Export("eastTgw", eastTgw.ID())
-		ctx.Export("westTgw", westTgw.ID())
 
 		return nil
 	})
