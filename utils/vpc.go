@@ -161,61 +161,61 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs, opts ...pulumi.ResourceO
 
 	dns := pulumi.Sprintf("%s.0.2", firstTwoOctets)
 
-	// Create security group for VPC endpoints
-	var ingressRules ec2.SecurityGroupIngressArray
-	for _, cidr := range privComputeSubnetCidrs {
-		ingressRules = append(ingressRules, &ec2.SecurityGroupIngressArgs{
-			Protocol:    pulumi.String("tcp"),
-			FromPort:    pulumi.Int(443),
-			ToPort:      pulumi.Int(443),
-			CidrBlocks:  pulumi.StringArray{pulumi.String(cidr)},
-			Description: pulumi.Sprintf("HTTPS from private subnet %s", cidr),
-		})
-	}
+	// // Create security group for VPC endpoints
+	// var ingressRules ec2.SecurityGroupIngressArray
+	// for _, cidr := range privComputeSubnetCidrs {
+	// 	ingressRules = append(ingressRules, &ec2.SecurityGroupIngressArgs{
+	// 		Protocol:    pulumi.String("tcp"),
+	// 		FromPort:    pulumi.Int(443),
+	// 		ToPort:      pulumi.Int(443),
+	// 		CidrBlocks:  pulumi.StringArray{pulumi.String(cidr)},
+	// 		Description: pulumi.Sprintf("HTTPS from private subnet %s", cidr),
+	// 	})
+	// }
 
-	vpcEndpointSG, err := ec2.NewSecurityGroup(ctx, fmt.Sprintf("%s-ssm-endpoint-sg", args.NamePrefix), &ec2.SecurityGroupArgs{
-		Name:        pulumi.Sprintf("%s-ssm-endpoint-sg", args.NamePrefix),
-		Description: pulumi.String("Security group for SSM VPC endpoints"),
-		VpcId:       vpc.ID(),
-		Ingress:     ingressRules,
-		Egress: ec2.SecurityGroupEgressArray{
-			&ec2.SecurityGroupEgressArgs{
-				Protocol:   pulumi.String("-1"),
-				FromPort:   pulumi.Int(0),
-				ToPort:     pulumi.Int(0),
-				CidrBlocks: pulumi.StringArray{pulumi.String("0.0.0.0/0")},
-			},
-		},
-		Tags: pulumi.StringMap{
-			"Name": pulumi.Sprintf("%s-ssm-endpoint-sg", args.NamePrefix),
-		},
-	}, opts...)
-	if err != nil {
-		return nil, err
-	}
-	// After creating your subnets and before returning VPCResult:
-	ssmServices := []string{"ssm", "ssmmessages", "ec2messages", "logs"}
-	ssmEndpoints := make(map[string]*ec2.VpcEndpoint)
-	for _, svc := range ssmServices {
-		endpoint, err := ec2.NewVpcEndpoint(ctx, fmt.Sprintf("%s-%s-endpoint", args.NamePrefix, svc), &ec2.VpcEndpointArgs{
-			VpcId:           vpc.ID(),
-			ServiceName:     pulumi.Sprintf("com.amazonaws.%s.%s", args.Region, svc),
-			VpcEndpointType: pulumi.String("Interface"),
-			SubnetIds: pulumi.StringArray{
-				privComputeSubnets[args.AZs[0]].ID(),
-				privComputeSubnets[args.AZs[1]].ID(),
-				privComputeSubnets[args.AZs[2]].ID(),
-			},
-			SecurityGroupIds: pulumi.StringArray{
-				vpcEndpointSG.ID(),
-			},
-			PrivateDnsEnabled: pulumi.Bool(true),
-		}, opts...)
-		if err != nil {
-			return nil, err
-		}
-		ssmEndpoints[svc] = endpoint
-	}
+	// vpcEndpointSG, err := ec2.NewSecurityGroup(ctx, fmt.Sprintf("%s-ssm-endpoint-sg", args.NamePrefix), &ec2.SecurityGroupArgs{
+	// 	Name:        pulumi.Sprintf("%s-ssm-endpoint-sg", args.NamePrefix),
+	// 	Description: pulumi.String("Security group for SSM VPC endpoints"),
+	// 	VpcId:       vpc.ID(),
+	// 	Ingress:     ingressRules,
+	// 	Egress: ec2.SecurityGroupEgressArray{
+	// 		&ec2.SecurityGroupEgressArgs{
+	// 			Protocol:   pulumi.String("-1"),
+	// 			FromPort:   pulumi.Int(0),
+	// 			ToPort:     pulumi.Int(0),
+	// 			CidrBlocks: pulumi.StringArray{pulumi.String("0.0.0.0/0")},
+	// 		},
+	// 	},
+	// 	Tags: pulumi.StringMap{
+	// 		"Name": pulumi.Sprintf("%s-ssm-endpoint-sg", args.NamePrefix),
+	// 	},
+	// }, opts...)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// // After creating your subnets and before returning VPCResult:
+	// ssmServices := []string{"ssm", "ssmmessages", "ec2messages", "logs"}
+	// ssmEndpoints := make(map[string]*ec2.VpcEndpoint)
+	// for _, svc := range ssmServices {
+	// 	endpoint, err := ec2.NewVpcEndpoint(ctx, fmt.Sprintf("%s-%s-endpoint", args.NamePrefix, svc), &ec2.VpcEndpointArgs{
+	// 		VpcId:           vpc.ID(),
+	// 		ServiceName:     pulumi.Sprintf("com.amazonaws.%s.%s", args.Region, svc),
+	// 		VpcEndpointType: pulumi.String("Interface"),
+	// 		SubnetIds: pulumi.StringArray{
+	// 			privComputeSubnets[args.AZs[0]].ID(),
+	// 			privComputeSubnets[args.AZs[1]].ID(),
+	// 			privComputeSubnets[args.AZs[2]].ID(),
+	// 		},
+	// 		SecurityGroupIds: pulumi.StringArray{
+	// 			vpcEndpointSG.ID(),
+	// 		},
+	// 		PrivateDnsEnabled: pulumi.Bool(true),
+	// 	}, opts...)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	ssmEndpoints[svc] = endpoint
+	// }
 	return &VPCResult{
 		Vpc:                   vpc,
 		InternetGateway:       igw,

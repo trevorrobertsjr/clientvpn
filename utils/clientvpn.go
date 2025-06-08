@@ -23,16 +23,22 @@ type VPNArgs struct {
 	SelfServiceSamlArn   string
 }
 
-func AddClientVPNRoute(ctx *pulumi.Context, name string, vpnEndpointId pulumi.IDOutput, targetNetworkCidr string, targetVpcSubnetId pulumi.IDOutput, opts ...pulumi.ResourceOption) (*ec2clientvpn.Route, error) {
+func AddClientVPNRoute(
+	ctx *pulumi.Context,
+	name string,
+	vpn *VPNResult, // Pass the VPNResult object
+	targetNetworkCidr string,
+	targetVpcSubnetId pulumi.IDOutput,
+	opts ...pulumi.ResourceOption,
+) (*ec2clientvpn.Route, error) {
 	route, err := ec2clientvpn.NewRoute(ctx, name, &ec2clientvpn.RouteArgs{
-		ClientVpnEndpointId:  vpnEndpointId,
+		ClientVpnEndpointId:  vpn.Endpoint.ID(),
 		DestinationCidrBlock: pulumi.String(targetNetworkCidr),
 		TargetVpcSubnetId:    targetVpcSubnetId,
-	})
+	}, append([]pulumi.ResourceOption{pulumi.DependsOn([]pulumi.Resource{vpn.SubnetAssociation})}, opts...)...)
 	if err != nil {
 		return nil, err
 	}
-
 	return route, nil
 }
 
