@@ -3,6 +3,7 @@ package main
 import (
 	"clientvpn/utils"
 
+	// "github.com/pulumi/pulumi-aws/sdk/go/aws/ec2transitgateway"
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws"
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -30,6 +31,8 @@ func main() {
 		westRegion := "us-west-2"
 		eastVpcCidr := "172.16.0.0/16"
 		westVpcCidr := "172.17.0.0/16"
+		eastAsn := 64512
+		westAsn := 64513
 		clientCidrBlock := "10.255.252.0/22"
 		serverCertificateArn := "arn:aws:acm:us-east-2:318168271290:certificate/9e709430-a008-4d6a-9599-265c3e5f24dc"
 		samlProviderArn := "arn:aws:iam::318168271290:saml-provider/aws-client-vpn"
@@ -96,7 +99,7 @@ func main() {
 			return err
 		}
 
-		eastInstance, err := utils.CreateEC2WithICMPAccess(ctx, utils.InstanceArgs{
+		eastInstance, _, err := utils.CreateEC2WithICMPAccess(ctx, utils.InstanceArgs{
 			Name:           "east-instance",
 			VpcId:          eastVpc.Vpc.ID(),
 			SubnetId:       eastVpc.PrivateComputeSubnets["a"].ID(),
@@ -118,7 +121,7 @@ func main() {
 			return err
 		}
 
-		westInstance, err := utils.CreateEC2WithICMPAccess(ctx, utils.InstanceArgs{
+		westInstance, westSg, err := utils.CreateEC2WithICMPAccess(ctx, utils.InstanceArgs{
 			Name:           "west-instance",
 			VpcId:          westVpc.Vpc.ID(),
 			SubnetId:       westVpc.PrivateComputeSubnets["a"].ID(),
@@ -130,23 +133,27 @@ func main() {
 		}
 
 		// Create Transit Gateways in both regions
-		eastTgw, err := utils.CreateTransitGateway(ctx, "east-tgw", pulumi.Provider(eastProvider))
+		eastTgw, eastTgwRt, err := utils.CreateTransitGateway(ctx, "east-tgw", eastAsn, pulumi.Provider(eastProvider))
 
 		if err != nil {
 			return err
 		}
 
-		westTgw, err := utils.CreateTransitGateway(ctx, "west-tgw", pulumi.Provider(westProvider))
+		westTgw, westTgwRt, err := utils.CreateTransitGateway(ctx, "west-tgw", westAsn, pulumi.Provider(westProvider))
 
 		if err != nil {
 			return err
 		}
 
 		// Create TGW peering attachment
-		_, _, err = utils.CreateTGWPeeringAttachment(ctx, "tgw-peering",
+		_, _, err = utils.CreateTGWPeeringAttachmentAndRoutes(ctx, "tgw-peering",
 			eastTgw,
 			westTgw,
 			westRegion,
+			eastVpcCidr,
+			westVpcCidr,
+			eastTgwRt,
+			westTgwRt,
 			pulumi.Provider(eastProvider),
 			pulumi.Provider(westProvider))
 		if err != nil {
@@ -154,22 +161,22 @@ func main() {
 		}
 
 		// Attach VPCs to TGWs
-		_, err = utils.AttachVPCsToTGW(ctx, eastTgw, eastRegion, []*utils.VPCResult{eastVpc}, pulumi.Provider(eastProvider))
+		_, err = utils.AttachVPCsToTGW(ctx, eastTgw, eastTgwRt, eastRegion, []*utils.VPCResult{eastVpc}, pulumi.Provider(eastProvider))
 		if err != nil {
 			return err
 		}
 
-		_, err = utils.AttachVPCsToTGW(ctx, westTgw, westRegion, []*utils.VPCResult{westVpc}, pulumi.Provider(westProvider))
+		_, err = utils.AttachVPCsToTGW(ctx, westTgw, westTgwRt, westRegion, []*utils.VPCResult{westVpc}, pulumi.Provider(westProvider))
 		if err != nil {
 			return err
 		}
 
 		// Add TGW routes
-		err = eastVpc.AddTGWRoute(ctx, "eastVpcAddWestVpcRoute", westVpcCidr, eastTgw.ID(), pulumi.Provider(eastProvider))
+		err = eastVpc.AddTGWRouteToVPC(ctx, "eastVpcAddWestVpcRoute", westVpcCidr, eastTgw.ID(), pulumi.Provider(eastProvider))
 		if err != nil {
 			return err
 		}
-		err = westVpc.AddTGWRoute(ctx, "westVpcAddEastVpcRoute", eastVpcCidr, westTgw.ID(), pulumi.Provider(westProvider))
+		err = westVpc.AddTGWRouteToVPC(ctx, "westVpcAddEastVpcRoute", eastVpcCidr, westTgw.ID(), pulumi.Provider(westProvider))
 		if err != nil {
 			return err
 		}
@@ -200,11 +207,18 @@ func main() {
 			return err
 		}
 
-		// Export the private IPs
+		// // Export the private IPs
 		ctx.Export("eastInstanceId", eastInstance.ID())
 		ctx.Export("westInstanceId", westInstance.ID())
 		ctx.Export("eastInstancePrivateIP", eastInstance.PrivateIp)
 		ctx.Export("westInstancePrivateIP", westInstance.PrivateIp)
+		ctx.Export("eastTGW", eastTgw.ID())
+		ctx.Export("westTGW", westTgw.ID())
+		ctx.Export("eastTGWRt", eastTgwRt.ID())
+		ctx.Export("westTGWRt", westTgwRt.ID())
+		ctx.Export("eastSubnet", eastVpc.PrivateComputeSubnets["a"].ID())
+		ctx.Export("westSubnet", westVpc.PrivateComputeSubnets["a"].ID())
+		ctx.Export("westInstanceSGId", westSg.ID())
 
 		return nil
 	})

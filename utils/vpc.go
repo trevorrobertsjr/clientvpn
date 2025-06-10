@@ -172,7 +172,7 @@ func CreateCustomVPC(ctx *pulumi.Context, args VPCArgs, opts ...pulumi.ResourceO
 	}, nil
 }
 
-func (v *VPCResult) AddTGWRoute(ctx *pulumi.Context, name string, destinationCidr string, tgwId pulumi.IDOutput, opts ...pulumi.ResourceOption) error {
+func (v *VPCResult) AddTGWRouteToVPC(ctx *pulumi.Context, name string, destinationCidr string, tgwId pulumi.IDOutput, opts ...pulumi.ResourceOption) error {
 	for az, subnet := range v.PrivateComputeSubnets {
 		rt, err := ec2.NewRouteTable(ctx, fmt.Sprintf("%s-tgw-rt-%s", name, az), &ec2.RouteTableArgs{
 			VpcId: v.Vpc.ID(),

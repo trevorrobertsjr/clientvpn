@@ -16,7 +16,7 @@ type InstanceArgs struct {
 	AmiId          string
 }
 
-func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs, opts ...pulumi.ResourceOption) (*ec2.Instance, error) {
+func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs, opts ...pulumi.ResourceOption) (*ec2.Instance, *ec2.SecurityGroup, error) {
 	// Security Group allowing ICMP
 	sg, err := ec2.NewSecurityGroup(ctx, fmt.Sprintf("%s-sg", args.Name), &ec2.SecurityGroupArgs{
 		VpcId: args.VpcId,
@@ -38,7 +38,7 @@ func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs, opts ...pul
 		},
 	}, opts...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// IAM Role for SSM
@@ -53,7 +53,7 @@ func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs, opts ...pul
         }`),
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Attach AmazonSSMManagedInstanceCore policy
@@ -62,7 +62,7 @@ func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs, opts ...pul
 		PolicyArn: pulumi.String("arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"),
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Attach AmazonSSMManagedInstanceCore policy
@@ -71,7 +71,7 @@ func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs, opts ...pul
 		PolicyArn: pulumi.String("arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"),
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Instance Profile
@@ -79,7 +79,7 @@ func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs, opts ...pul
 		Role: role.Name,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	instance, err := ec2.NewInstance(ctx, args.Name, &ec2.InstanceArgs{
@@ -92,5 +92,5 @@ func CreateEC2WithICMPAccess(ctx *pulumi.Context, args InstanceArgs, opts ...pul
 			"Name": pulumi.String(args.Name),
 		},
 	}, opts...)
-	return instance, err
+	return instance, sg, err
 }
